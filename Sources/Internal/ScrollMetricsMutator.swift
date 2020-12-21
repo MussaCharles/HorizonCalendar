@@ -17,7 +17,7 @@ import UIKit
 
 // MARK: - ScrollMetricsMutator
 
-/// Facilitates infinite scrolling by looping the scroll position until an edge is hit.
+/// Facilitates infinite scrolling by looping the scroll position infinitely until a boundary is hit.
 final class ScrollMetricsMutator {
 
   // MARK: Lifecycle
@@ -77,7 +77,11 @@ final class ScrollMetricsMutator {
     scrollMetricsProvider.setOffset(to: originalOffset, for: scrollAxis)
   }
 
-  func loopOffsetIfNeeded(updatingPositionOf layoutItem: LayoutItem) -> LayoutItem {
+  func loopOffsetIfNeeded(
+    updatingPositionOf layoutItem: LayoutItem,
+    didLoopOffsetByDelta: (CGFloat) -> Void)
+    -> LayoutItem
+  {
     var origin = layoutItem.frame.origin
 
     let offset = scrollMetricsProvider.offset(for: scrollAxis)
@@ -91,6 +95,8 @@ final class ScrollMetricsMutator {
       case .vertical: origin.y += Self.loopingRegionSize
       case .horizontal: origin.x += Self.loopingRegionSize
       }
+
+      didLoopOffsetByDelta(Self.loopingRegionSize)
     } else if offset > Self.maximumContentOffset && endInset == 0 {
       scrollMetricsProvider.setOffset(to: Self.minimumContentOffset, for: scrollAxis)
 
@@ -98,6 +104,8 @@ final class ScrollMetricsMutator {
       case .vertical: origin.y -= Self.loopingRegionSize
       case .horizontal: origin.x -= Self.loopingRegionSize
       }
+
+      didLoopOffsetByDelta(-Self.loopingRegionSize)
     }
 
     return LayoutItem(

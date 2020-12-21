@@ -281,6 +281,15 @@ public final class CalendarView: UIView {
       anchorLayoutItem = nil
     }
 
+    if
+      case .horizontal(let options) = content.monthsLayout,
+      options.paginationBehavior != nil
+    {
+      scrollView.decelerationRate = .fast
+    } else {
+      scrollView.decelerationRate = .normal
+    }
+
     setNeedsLayout()
   }
 
@@ -371,15 +380,22 @@ public final class CalendarView: UIView {
   private let reuseManager = ItemViewReuseManager()
 
   private var content: CalendarViewContent
-  private var anchorLayoutItem: LayoutItem?
+
   private var _scrollMetricsMutator: ScrollMetricsMutator?
+
+  private var anchorLayoutItem: LayoutItem?
   private var _visibleItemsProvider: VisibleItemsProvider?
   private var visibleItemsDetails: VisibleItemsDetails?
   private var visibleViewsForVisibleItems = [VisibleCalendarItem: ItemView]()
+
   private weak var scrollToItemDisplayLink: CADisplayLink?
   private var scrollToItemAnimationStartTime: CFTimeInterval?
+
   private var cachedAccessibilityElements: [Any]?
   private var focusedAccessibilityElement: Any?
+
+  private var pageIndex = 0
+  private var loopOffsetToApplyToTargetContentOffset: CGFloat?
 
   private var scrollToItemContext: ScrollToItemContext? {
     willSet {
@@ -391,10 +407,12 @@ public final class CalendarView: UIView {
     let scrollView = NoContentInsetAdjustmentScrollView()
     scrollView.scrollsToTop = false
     scrollView.showsVerticalScrollIndicator = false
-    scrollView.showsHorizontalScrollIndicator = false
+    scrollView.showsHorizontalScrollIndicator = true
     scrollView.delegate = self
     return scrollView
   }()
+  
+  private lazy var paginationHelper = PaginationHelper(minimumOffset: 10_000)
 
   private var calendar: Calendar {
     content.calendar
@@ -716,7 +734,10 @@ extension CalendarView: UIScrollViewDelegate {
     if let anchorLayoutItem = anchorLayoutItem {
       scrollView.performWithoutNotifyingDelegate {
         self.anchorLayoutItem = scrollMetricsMutator.loopOffsetIfNeeded(
-          updatingPositionOf: anchorLayoutItem)
+          updatingPositionOf: anchorLayoutItem,
+          didLoopOffsetByDelta: { _ in
+            
+          })
       }
     }
 
@@ -733,6 +754,8 @@ extension CalendarView: UIScrollViewDelegate {
     }
 
     setNeedsLayout()
+    
+    print("SVDS: \(scrollView.contentOffset.x)")
   }
 
   @available(
@@ -754,6 +777,51 @@ extension CalendarView: UIScrollViewDelegate {
   public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
     guard let visibleDayRange = visibleDayRange else { return }
     didEndDecelerating?(visibleDayRange)
+  }
+
+  @available(
+    *,
+    deprecated,
+    message: "Do not invoke this function directly, as it is only intended to be called from the internal implementation of `CalendarView`. This will be removed in a future major release.")
+  public func scrollViewWillEndDragging(
+    _ scrollView: UIScrollView,
+    withVelocity velocity: CGPoint,
+    targetContentOffset: UnsafeMutablePointer<CGPoint>)
+  {
+    guard
+      case .horizontal(let options) = content.monthsLayout,
+      case .enabled(let configuration) = options.paginationBehavior
+    else
+    {
+      return
+    }
+
+    let monthWidth = options.monthWidth(
+      calendarWidth: bounds.width,
+      interMonthSpacing: content.interMonthSpacing)
+    
+    targetContentOffset.pointee.x = paginationHelper.nextPageOffset(
+      forTargetOffset: targetContentOffset.pointee.x,
+      velocity: velocity.x,
+      paginationConfiguration: configuration,
+      monthWidth: monthWidth,
+      interMonthSpacing: content.interMonthSpacing,
+      boundsWidth: bounds.width)
+    
+    
+//    let pageSize = monthWidth + content.interMonthSpacing
+//
+//    if velocity.x < 0 {
+//      pageIndex = max(0, pageIndex - 1)
+//    } else if velocity.x > 0 {
+//      pageIndex = min(content.numberOfMonths, pageIndex + 1)
+//    }
+//
+//    targetContentOffset.pointee.x = 10_000 +
+//      (CGFloat(pageIndex) * pageSize) +
+//      (loopOffsetToApplyToTargetContentOffset ?? 0)
+//    loopOffsetToApplyToTargetContentOffset = nil
+//    print("Target content offset: \(targetContentOffset.pointee.x) from \(scrollView.contentOffset.x)")
   }
 
 }

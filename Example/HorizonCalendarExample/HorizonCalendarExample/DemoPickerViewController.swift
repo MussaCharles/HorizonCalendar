@@ -142,7 +142,12 @@ extension DemoPickerViewController: UITableViewDelegate {
             pinDaysOfWeekToTop: false,
             alwaysShowCompleteBoundaryMonths: false))
         : .horizontal(
-          options: HorizontalMonthsLayoutOptions(maximumFullyVisibleMonths: 1.5)))
+          options: HorizontalMonthsLayoutOptions(
+            maximumFullyVisibleMonths: 2,
+            paginationBehavior: .enabled(
+              .init(
+                restingPosition: .boundsWidth,
+                restingAffinity: .atPositionsAdjacentToPrevious)))))
 
     navigationController?.pushViewController(demoViewController, animated: true)
   }
