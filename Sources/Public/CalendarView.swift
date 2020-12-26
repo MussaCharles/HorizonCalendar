@@ -394,7 +394,6 @@ public final class CalendarView: UIView {
   private var cachedAccessibilityElements: [Any]?
   private var focusedAccessibilityElement: Any?
 
-  private var pageIndex = 0
   private var loopOffsetToApplyToTargetContentOffset: CGFloat?
 
   private var scrollToItemContext: ScrollToItemContext? {
@@ -406,13 +405,13 @@ public final class CalendarView: UIView {
   private lazy var scrollView: NoContentInsetAdjustmentScrollView = {
     let scrollView = NoContentInsetAdjustmentScrollView()
     scrollView.scrollsToTop = false
-    scrollView.showsVerticalScrollIndicator = false
+    scrollView.showsVerticalScrollIndicator = true
     scrollView.showsHorizontalScrollIndicator = true
     scrollView.delegate = self
     return scrollView
   }()
   
-  private lazy var paginationHelper = PaginationHelper(minimumOffset: 10_000)
+  private lazy var paginationHelper = PaginationHelper(initialValidOffset: 10_000)
 
   private var calendar: Calendar {
     content.calendar
@@ -731,12 +730,15 @@ extension CalendarView: UIScrollViewDelegate {
     deprecated,
     message: "Do not invoke this function directly, as it is only intended to be called from the internal implementation of `CalendarView`. This will be removed in a future major release.")
   public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    print(scrollView.contentOffset.x)
     if let anchorLayoutItem = anchorLayoutItem {
       scrollView.performWithoutNotifyingDelegate {
         self.anchorLayoutItem = scrollMetricsMutator.loopOffsetIfNeeded(
           updatingPositionOf: anchorLayoutItem,
-          didLoopOffsetByDelta: { _ in
-            
+          didLoopOffsetByDelta: { offset in
+            paginationHelper.didLoopScrollPosition(
+              by: offset,
+              isDecelerating: scrollView.isDecelerating)
           })
       }
     }
@@ -754,8 +756,6 @@ extension CalendarView: UIScrollViewDelegate {
     }
 
     setNeedsLayout()
-    
-    print("SVDS: \(scrollView.contentOffset.x)")
   }
 
   @available(
@@ -788,6 +788,7 @@ extension CalendarView: UIScrollViewDelegate {
     withVelocity velocity: CGPoint,
     targetContentOffset: UnsafeMutablePointer<CGPoint>)
   {
+//    print("IO: \(scrollView.contentOffset.x), TO: \(targetContentOffset.pointee.x)")
     guard
       case .horizontal(let options) = content.monthsLayout,
       case .enabled(let configuration) = options.paginationBehavior
@@ -802,6 +803,7 @@ extension CalendarView: UIScrollViewDelegate {
     
     targetContentOffset.pointee.x = paginationHelper.nextPageOffset(
       forTargetOffset: targetContentOffset.pointee.x,
+      originalOffset: scrollView.contentOffset.x,
       velocity: velocity.x,
       paginationConfiguration: configuration,
       monthWidth: monthWidth,

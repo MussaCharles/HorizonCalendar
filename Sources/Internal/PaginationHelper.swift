@@ -12,15 +12,15 @@ final class PaginationHelper {
   
   // MARK: Lifecycle
   
-  init(minimumOffset: CGFloat) {
-    self.minimumOffset = minimumOffset
-    lastPageOffset = minimumOffset
+  init(initialValidOffset: CGFloat) {
+    lastOffset = initialValidOffset
   }
   
   // MARK: Internal
   
   func nextPageOffset(
     forTargetOffset targetOffset: CGFloat,
+    originalOffset: CGFloat,
     velocity: CGFloat,
     paginationConfiguration: HorizontalMonthsLayoutOptions.PaginationBehavior.Configuration,
     monthWidth: CGFloat,
@@ -34,42 +34,42 @@ final class PaginationHelper {
     case .boundsWidth: pageSize = boundsWidth
     }
     
-    let lastPageOffset: CGFloat
-    if self.lastPageOffset > 20_000 {
-      lastPageOffset = self.lastPageOffset - 10_000
-    } else if self.lastPageOffset < 10_000 {
-      lastPageOffset = self.lastPageOffset + 10_000
-    } else {
-      lastPageOffset = self.lastPageOffset
-    }
-    
     let finalOffset: CGFloat
     switch paginationConfiguration.restingAffinity {
     case .atPositionsAdjacentToPrevious:
-      if velocity > 0 {
-        finalOffset = lastPageOffset + pageSize
-      } else if velocity < 0 {
-        finalOffset = lastPageOffset - pageSize
-      } else {
-        finalOffset = lastPageOffset + pageSize
-      }
+      finalOffset = targetOffset
+//      if velocity > 0 {
+//        finalOffset = lastPageOffset + pageSize
+//      } else if velocity < 0 {
+//        finalOffset = lastPageOffset - pageSize
+//      } else {
+//        finalOffset = lastPageOffset + pageSize
+//      }
       
     case .atPositionsClosestToTargetOffset:
-      finalOffset = targetOffset
-//      let normalizedOffset = targetOffset - minimumOffset
-//      finalOffset = minimumContentOffset + (round(normalizedOffset / pageSize) * pageSize)
+      let offsetDelta = targetOffset - originalOffset
+      finalOffset = lastOffset + (round(offsetDelta / pageSize) * pageSize)
     }
-    
-    print(finalOffset)
-    
-    self.lastPageOffset = finalOffset
+
+    print("LO: \(lastOffset) -> FO: \(finalOffset)")
+
+    lastOffset = finalOffset
     
     return finalOffset
   }
   
+  func didLoopScrollPosition(by offset: CGFloat, isDecelerating: Bool) {
+    loopOffsetTotal += offset
+    
+    if isDecelerating {
+      lastOffset += loopOffsetTotal
+      loopOffsetTotal = 0
+    }
+  }
+  
   // MARK: Private
   
-  private var minimumOffset: CGFloat
-  private var lastPageOffset: CGFloat
+  private var lastOffset: CGFloat
+  private var loopOffsetTotal = CGFloat(0)
   
 }

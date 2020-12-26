@@ -147,7 +147,7 @@ extension DemoPickerViewController: UITableViewDelegate {
             paginationBehavior: .enabled(
               .init(
                 restingPosition: .boundsWidth,
-                restingAffinity: .atPositionsAdjacentToPrevious)))))
+                restingAffinity: .atPositionsClosestToTargetOffset)))))
 
     navigationController?.pushViewController(demoViewController, animated: true)
   }

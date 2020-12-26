@@ -89,7 +89,8 @@ final class ScrollMetricsMutator {
     let endInset = scrollMetricsProvider.endInset(for: scrollAxis)
 
     if offset < Self.minimumContentOffset && startInset == 0 {
-      scrollMetricsProvider.setOffset(to: Self.maximumContentOffset, for: scrollAxis)
+      let newOffset = Self.maximumContentOffset + (offset - Self.minimumContentOffset)
+      scrollMetricsProvider.setOffset(to: newOffset, for: scrollAxis)
 
       switch scrollAxis {
       case .vertical: origin.y += Self.loopingRegionSize
@@ -98,7 +99,8 @@ final class ScrollMetricsMutator {
 
       didLoopOffsetByDelta(Self.loopingRegionSize)
     } else if offset > Self.maximumContentOffset && endInset == 0 {
-      scrollMetricsProvider.setOffset(to: Self.minimumContentOffset, for: scrollAxis)
+      let newOffset = Self.minimumContentOffset + (offset - Self.maximumContentOffset)
+      scrollMetricsProvider.setOffset(to: newOffset, for: scrollAxis)
 
       switch scrollAxis {
       case .vertical: origin.y -= Self.loopingRegionSize
