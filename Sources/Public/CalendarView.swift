@@ -395,6 +395,18 @@ public final class CalendarView: UIView {
     scrollView.delegate = self
     return scrollView
   }()
+  
+  // Necessary to work around a `UIScrollView` behavior difference on Mac. See `scrollViewDidScroll`
+  // and `preventOverscrollIfNeeded` for more context.
+  private lazy var isRunningOnMac: Bool = {
+    if #available(iOS 13.0, *) {
+      if ProcessInfo.processInfo.isMacCatalystApp {
+        return true
+      }
+    }
+    
+    return false
+  }()
 
   private var calendar: Calendar {
     content.calendar
@@ -697,6 +709,38 @@ public final class CalendarView: UIView {
       break
     }
   }
+  
+  // This hack is needed because `UIScrollView` behaves differently on macOS; rather than adjusting
+  // the target content offset of a swipe / flick when the content boundary is set, it flies past
+  // the end of the content, then snaps back to the content boundary after a second or so.
+  // Additionally, the `scrollView.bounces = false` simply doesn't work on macOS.
+  // https://openradar.appspot.com/radar?id=4966130615582720
+  // https://openradar.appspot.com/radar?id=5051703980195840
+  private func preventOverscrollIfNeeded() {
+    switch content.monthsLayout {
+    case .vertical:
+      if scrollView.contentOffset.y < -scrollView.contentInset.top {
+        scrollView.contentOffset.y = -scrollView.contentInset.top
+      }
+      
+      let contentBottom = scrollView.contentOffset.y + scrollView.bounds.height
+      let maxContentBottom = scrollView.contentSize.height + scrollView.contentInset.bottom
+      if contentBottom > maxContentBottom {
+        scrollView.contentOffset.y = maxContentBottom - scrollView.bounds.height
+      }
+
+    case .horizontal:
+      if scrollView.contentOffset.x < -scrollView.contentInset.left {
+        scrollView.contentOffset.x = -scrollView.contentInset.left
+      }
+      
+      let contentRight = scrollView.contentOffset.x + scrollView.bounds.width
+      let maxContentRight = scrollView.contentSize.width + scrollView.contentInset.right
+      if contentRight > maxContentRight {
+        scrollView.contentOffset.x = maxContentRight - scrollView.bounds.width
+      }
+    }
+  }
 
 }
 
@@ -709,6 +753,12 @@ extension CalendarView: UIScrollViewDelegate {
     deprecated,
     message: "Do not invoke this function directly, as it is only intended to be called from the internal implementation of `CalendarView`. This will be removed in a future major release.")
   public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    if isRunningOnMac {
+      scrollView.performWithoutNotifyingDelegate {
+        preventOverscrollIfNeeded()
+      }
+    }
+    
     if let anchorLayoutItem = anchorLayoutItem {
       scrollView.performWithoutNotifyingDelegate {
         self.anchorLayoutItem = scrollMetricsMutator.loopOffsetIfNeeded(
